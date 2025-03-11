@@ -1,2 +1,0 @@
- # Можна додавати текст з глибиною на зображення
-        #cv2.putText(disparity_map_colored, f"Depth: {avg_depth:.2f} m", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)

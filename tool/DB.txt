@@ -1,0 +1,29 @@
+CREATE TABLE image_depth_maps (
+    id SERIAL PRIMARY KEY,
+    left_image_id INT REFERENCES images(id),
+    right_image_id INT REFERENCES images(id),
+    filename TEXT UNIQUE NOT NULL,
+    process_time FLOAT NOT NULL,
+    report TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE video_depth_maps (
+    id SERIAL PRIMARY KEY,
+    left_video_id INT REFERENCES videos(id),
+    right_video_id INT REFERENCES videos(id),
+    filename TEXT UNIQUE NOT NULL,
+    process_time FLOAT NOT NULL,
+    report TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE camera_depth_maps (
+    id SERIAL PRIMARY KEY,
+    left_camera_id INT REFERENCES cameras(id),
+    right_camera_id INT REFERENCES cameras(id),
+    filename TEXT UNIQUE NOT NULL,
+    process_time FLOAT NOT NULL,
+    report TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
