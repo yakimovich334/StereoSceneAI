@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog, messagebox
@@ -433,6 +434,10 @@ class MainInterface:
 
         start_time = datetime.now()
 
+        # Отримуємо розміри екрану
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+
         while self.is_creating:
             ret_left, left_frame = left_cap.read()
             ret_right, right_frame = right_cap.read()
@@ -460,12 +465,27 @@ class MainInterface:
                 output_map = cv2.applyColorMap(np.uint8(disparity_map_normalized), cv2.COLORMAP_JET)
 
             # Відображення результатів
+            # Лівий верхній кут для "Left Camera"
+            left_x = 10  # Невеликий відступ від лівого краю
+            left_y = 10  # Невеликий відступ від верхнього краю
+
+            # Правий верхній кут для "Right Camera"
+            right_x = screen_width - frame_size[0] - 10  # Відступ від правого краю
+            right_y = 10  # Невеликий відступ від верхнього краю
+
+            # Центр для "Depth Map"
+            center_x = screen_width // 2 - frame_size[0] // 2
+            center_y = screen_height // 2 - frame_size[1] // 2 + 100
+
             if self.check_left.get():
-                cv2.imshow("Ліве зображення", left_frame)
+                cv2.imshow("Left Camera", left_frame)
+                cv2.moveWindow("Left Camera", left_x, left_y)
             if self.check_right.get():
-                cv2.imshow("Праве зображення", right_frame)
+                cv2.imshow("Right Camera", right_frame)
+                cv2.moveWindow("Right Camera", right_x, right_y)
             if self.check_depth.get():
-                cv2.imshow("Карта глибин", output_map)
+                cv2.imshow("Depth Map", output_map)
+                cv2.moveWindow("Depth Map", center_x, center_y)
 
             # Запис у відео
             video_writer.write(output_map)
@@ -588,11 +608,27 @@ class MainInterface:
                         if left_img is None or right_img is None:
                             continue
 
-                        mode = self.combo_var.get()
-                        disparity_map = self.stereo.compute(left_img, right_img).astype(np.float32) / 16.0
-                        disparity_map_normalized = cv2.normalize(disparity_map, None, 0, 255, cv2.NORM_MINMAX)
-                        output_map = disparity_map_normalized if mode == "Чорно-білий" else cv2.applyColorMap(np.uint8(disparity_map_normalized), cv2.COLORMAP_JET)
+                        # Перетворення в сірий формат
+                        left_gray = cv2.cvtColor(left_img, cv2.COLOR_BGR2GRAY)
+                        right_gray = cv2.cvtColor(right_img, cv2.COLOR_BGR2GRAY)
 
+                        # Обчислення карти диспаратності
+                        disparity_map = self.stereo.compute(left_gray, right_gray).astype(np.float32) / 16.0
+
+                        # Фільтруємо недійсні значення (замінюємо -1 на мінімальне дійсне значення)
+                        disparity_map[disparity_map == -1] = np.min(disparity_map[disparity_map != -1])
+
+                        # Нормалізація карти диспаратності
+                        mode = self.combo_var.get()
+                        disparity_map_normalized = cv2.normalize(disparity_map, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+
+                        # Створюємо карту для відображення та збереження
+                        if mode == "Чорно-білий":
+                            output_map = cv2.cvtColor(disparity_map_normalized, cv2.COLOR_GRAY2BGR)
+                        else:
+                            output_map = cv2.applyColorMap(disparity_map_normalized, cv2.COLORMAP_JET)
+
+                        # Збереження карти глибини
                         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
                         base_filename = os.path.basename(left_img_path).split('.')[0]
                         filename = f"disparity_{base_filename}_{'black' if mode == 'Чорно-білий' else 'color'}_{timestamp}.png"
@@ -602,13 +638,33 @@ class MainInterface:
                         process_time = (datetime.now() - start_time).total_seconds()
                         self.save_image_depth_map_to_db(image_id, image_id, output_path, process_time)
 
+                        # Відображення
                         cv2.destroyAllWindows()
+                        # Отримуємо розміри екрану
+                        screen_width = self.root.winfo_screenwidth()
+                        screen_height = self.root.winfo_screenheight()
+
+                        # Лівий верхній кут для "Left Image"
+                        left_x = 10  # Невеликий відступ від лівого краю
+                        left_y = 10  # Невеликий відступ від верхнього краю
+
+                        # Правий верхній кут для "Right Image"
+                        right_x = screen_width - right_img.shape[1] - 10  # Відступ від правого краю
+                        right_y = 10  # Невеликий відступ від верхнього краю
+
+                        # Центр для "Depth Map"
+                        center_x = screen_width // 2 - output_map.shape[1] // 2
+                        center_y = screen_height // 2 - output_map.shape[0] // 2 + 100
+
                         if self.check_depth.get():
-                            cv2.imshow("Карта диспаратності", output_map)
+                            cv2.imshow("Depth Map", output_map)
+                            cv2.moveWindow("Depth Map", center_x, center_y)
                         if self.check_left.get():
-                            cv2.imshow("Ліве зображення", left_img)
+                            cv2.imshow("Left Image", left_img)
+                            cv2.moveWindow("Left Image", left_x, left_y)
                         if self.check_right.get():
-                            cv2.imshow("Праве зображення", right_img)
+                            cv2.imshow("Right Image", right_img)
+                            cv2.moveWindow("Right Image", right_x, right_y)
 
                         if cv2.waitKey(1000) & 0xFF == ord('q'):
                             self.is_creating = False
@@ -662,6 +718,10 @@ class MainInterface:
             start_time = datetime.now()
             frame_count = 0
 
+            # Отримуємо розміри екрану
+            screen_width = self.root.winfo_screenwidth()
+            screen_height = self.root.winfo_screenheight()
+
             while left_cap.isOpened() and right_cap.isOpened() and self.is_creating:
                 ret_left, left_frame = left_cap.read()
                 ret_right, right_frame = right_cap.read()
@@ -689,12 +749,27 @@ class MainInterface:
                 video_writer.write(output_map)
                 frame_count += 1
 
+                # Лівий верхній кут для "Left Camera"
+                left_x = 10  # Невеликий відступ від лівого краю
+                left_y = 10  # Невеликий відступ від верхнього краю
+
+                # Правий верхній кут для "Right Camera"
+                right_x = screen_width - frame_size[0] - 10  # Відступ від правого краю
+                right_y = 10  # Невеликий відступ від верхнього краю
+
+                # Центр для "Depth Map"
+                center_x = screen_width // 2 - frame_size[0] // 2
+                center_y = screen_height // 2 - frame_size[1] // 2 + 100
+
                 if self.check_depth.get():
-                    cv2.imshow("Карта глибин", output_map)
+                    cv2.imshow("Depth Map", output_map)
+                    cv2.moveWindow("Depth Map", center_x, center_y)
                 if self.check_left.get():
-                    cv2.imshow("Ліва камера", left_frame)
+                    cv2.imshow("Left Camera", left_frame)
+                    cv2.moveWindow("Left Camera", left_x, left_y)
                 if self.check_right.get():
-                    cv2.imshow("Права камера", right_frame)
+                    cv2.imshow("Right Camera", right_frame)
+                    cv2.moveWindow("Right Camera", right_x, right_y)
 
                 key = cv2.waitKey(1) & 0xFF
                 if key == ord('q'):
@@ -791,15 +866,31 @@ class MainInterface:
                         right_img = cv2.imread(right_filename, cv2.IMREAD_COLOR)
 
                         cv2.destroyAllWindows()
+                        # Отримуємо розміри екрану
+                        screen_width = self.root.winfo_screenwidth()
+                        screen_height = self.root.winfo_screenheight()
+
+                        # Лівий верхній кут для "Left Image"
+                        left_x = 10  # Невеликий відступ від лівого краю
+                        left_y = 10  # Невеликий відступ від верхнього краю
+
+                        # Правий верхній кут для "Right Image"
+                        right_x = screen_width - right_img.shape[1] - 10  # Відступ від правого краю
+                        right_y = 10  # Невеликий відступ від верхнього краю
+
+                        # Центр для "Depth Map"
+                        center_x = screen_width // 2 - depth_map.shape[1] // 2
+                        center_y = screen_height // 2 - depth_map.shape[0] // 2
+
                         if self.check_depth.get() and depth_map is not None:
-                            cv2.imshow("Карта глибин", depth_map)
-                            cv2.moveWindow("Карта глибин", 0, 500)
+                            cv2.imshow("Depth Map", depth_map)
+                            cv2.moveWindow("Depth Map", center_x, center_y)
                         if self.check_left.get() and left_img is not None:
-                            cv2.imshow("Ліве зображення", left_img)
-                            cv2.moveWindow("Ліве зображення", 0, 0)
+                            cv2.imshow("Left Image", left_img)
+                            cv2.moveWindow("Left Image", left_x, left_y)
                         if self.check_right.get() and right_img is not None:
-                            cv2.imshow("Праве зображення", right_img)
-                            cv2.moveWindow("Праве зображення", 500, 0)
+                            cv2.imshow("Right Image", right_img)
+                            cv2.moveWindow("Right Image", right_x, right_y)
 
                     show_image(current_index)
                     
@@ -852,7 +943,16 @@ class MainInterface:
                         if not ret:
                             break
 
-                        cv2.imshow("Карта глибин", depth_frame)
+                        # Отримуємо розміри екрану
+                        screen_width = self.root.winfo_screenwidth()
+                        screen_height = self.root.winfo_screenheight()
+
+                        # Центр для "Depth Map"
+                        center_x = screen_width // 2 - depth_frame.shape[1] // 2
+                        center_y = screen_height // 2 - depth_frame.shape[0] // 2
+
+                        cv2.imshow("Depth Map", depth_frame)
+                        cv2.moveWindow("Depth Map", center_x, center_y)
 
                         key = cv2.waitKey(33) & 0xFF
                         if key == ord('q') or key == 27:
