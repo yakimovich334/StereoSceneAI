@@ -177,3 +177,7 @@ cython_debug/
 
 yolov3.weights
 yolov8n.pt
+Left_video.mp4
+Right_video.mp4
+test/
+tool/
